@@ -1,0 +1,13 @@
+api:
+  host: 127.0.0.1
+  port: 8000
+database:
+  path: ./subhunterx_pro.db
+subhunterx:
+  max_screenshots: 20
+  rate_limit: 0.1
+  screenshot: false
+  threads: 50
+  timeout: 8
+wordlists:
+  brute_size: 1000

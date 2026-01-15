@@ -1,0 +1,5 @@
+{
+  "prefixes": ["api", "app", "admin", "auth", "dev", "test", "staging", "beta", "demo"],
+  "suffixes": ["v1", "v2", "v3", "api", "app", "dev", "test", "staging", "prod"],
+  "tech": ["mysql", "redis", "mongo", "elastic", "grafana", "jenkins", "gitlab"]
+}

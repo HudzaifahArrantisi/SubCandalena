@@ -1,0 +1,25 @@
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #333;
+}
+
+.stats-card {
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 20px;
+    margin: 10px 0;
+    box-shadow: 0 8px 32px rgba(31,38,135,0.37);
+}
+
+.high-risk { background: linear-gradient(45deg, #ff6b6b, #ff8e8e); }
+.medium-risk { background: linear-gradient(45deg, #feca57, #ff9ff3); }
+
+table { 
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(31,38,135,0.37);
+}
