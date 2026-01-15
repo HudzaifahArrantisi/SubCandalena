@@ -66,9 +66,9 @@ async def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 [ SubCandalena Examples ]
-  python main.py example.com
-  python main.py example.com --dashboard
-  python main.py example.com --threads 100
+  python candalena.py example.com
+  python candalena.py example.com --dashboard
+  python candalena.py example.com --threads 100
         """
     )
 
@@ -85,7 +85,7 @@ async def main():
     # Validate domain
     if not re.match(r'^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', args.domain):
         console.print("[bold red]❌ INVALID DOMAIN FORMAT[/]")
-        console.print("[bold yellow]USAGE: python main.py example.com[/]")
+        console.print("[bold yellow]USAGE: python candalena.py example.com[/]")
         return
 
     banner()
