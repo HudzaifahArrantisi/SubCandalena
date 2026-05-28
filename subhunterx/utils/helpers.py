@@ -29,6 +29,12 @@ def load_config():
         'database': {
             'path': './subhunterx_pro.db'
         },
+        'directory_scan': {
+            'wordlist': 'data/wordlists/directories.txt',
+            'threads': 20,
+            'timeout': 8,
+            'include_404': False
+        },
         'wordlists': {
             'brute_size': 1000,
             'path': 'data/wordlists/subdomains-top1k.txt',

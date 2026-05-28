@@ -3,6 +3,11 @@ api:
   port: 8000
 database:
   path: ./subhunterx_pro.db
+directory_scan:
+  include_404: false
+  threads: 20
+  timeout: 8
+  wordlist: data/wordlists/directories.txt
 passive_sources:
   alienvault: true
   commoncrawl: true

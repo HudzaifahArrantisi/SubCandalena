@@ -21,10 +21,10 @@ class Visualizer:
         self.output_dir = output_dir
         self.timestamp = datetime.now()
 
-    def create_dashboard(self):
+    def create_dashboard(self, filepath=None):
         """Create an HTML report."""
         html_content = self._generate_professional_html()
-        filepath = self._report_path("html")
+        filepath = self._export_path(filepath, "html")
 
         try:
             with open(filepath, "w", encoding="utf-8") as f:
@@ -35,9 +35,9 @@ class Visualizer:
             print(f"Error generating HTML report: {e}")
             return None
 
-    def export_json(self):
+    def export_json(self, filepath=None):
         """Export results as JSON."""
-        filepath = self._report_path("json")
+        filepath = self._export_path(filepath, "json")
         json_data = {
             "metadata": {
                 "tool": "SubCandalena",
@@ -59,9 +59,9 @@ class Visualizer:
             print(f"Error generating JSON export: {e}")
             return None
 
-    def export_csv(self):
+    def export_csv(self, filepath=None):
         """Export results as CSV."""
-        filepath = self._report_path("csv")
+        filepath = self._export_path(filepath, "csv")
 
         try:
             with open(filepath, "w", newline="", encoding="utf-8") as f:
@@ -107,9 +107,9 @@ class Visualizer:
             print(f"Error generating CSV export: {e}")
             return None
 
-    def export_txt(self):
+    def export_txt(self, filepath=None):
         """Export a plain subdomain list."""
-        filepath = self._report_path("txt")
+        filepath = self._export_path(filepath, "txt")
         try:
             subdomains = [
                 item.get("subdomain") if isinstance(item, dict) else item
@@ -122,6 +122,24 @@ class Visualizer:
         except Exception as e:
             print(f"Error generating TXT export: {e}")
             return None
+
+    def export_to_path(self, filepath):
+        """Export results using the format inferred from a target file path."""
+        path = Path(filepath)
+        if not path.suffix:
+            path = path.with_suffix(".txt")
+
+        extension = path.suffix.lower().lstrip(".")
+        exporters = {
+            "html": self.create_dashboard,
+            "json": self.export_json,
+            "csv": self.export_csv,
+            "txt": self.export_txt,
+        }
+        exporter = exporters.get(extension)
+        if not exporter:
+            raise ValueError("Unsupported output extension. Use .txt, .json, .csv, or .html.")
+        return exporter(path)
 
     def _format_results_for_export(self):
         formatted = []
@@ -428,6 +446,16 @@ class Visualizer:
         reports_dir.mkdir(exist_ok=True)
         filename = f"SubCandalena_{self.domain.replace('.', '_')}_{self.timestamp.strftime('%Y%m%d_%H%M%S')}.{extension}"
         return reports_dir / filename
+
+    def _export_path(self, filepath, default_extension):
+        if filepath is None:
+            return self._report_path(default_extension)
+
+        path = Path(filepath)
+        if not path.suffix:
+            path = path.with_suffix(f".{default_extension}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path
 
     def _escape(self, value):
         return html_lib.escape(str(value))

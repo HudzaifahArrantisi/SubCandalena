@@ -4,11 +4,9 @@ SubCandalena - SubHunterX Pro v3.0
 Advanced Subdomain Reconnaissance & Intelligence Suite
 """
 
-from pyparsing import results
 import argparse
 import asyncio
 import sys
-import os
 import re
 from pathlib import Path
 
@@ -28,8 +26,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 try:
     from subhunterx.core.engine import SubHunterXEngine
+    from subhunterx.modules.directory_scanner import DirectoryScanner
     from subhunterx.utils.helpers import load_config, color_status
     from subhunterx.database.manager import init_db
+    from subhunterx.utils.asyncio_compat import configure_windows_event_loop
     from subhunterx.utils.visualizer import open_dashboard, Visualizer
 except ImportError as e:
     print(f"❌ Import Error: {e}")
@@ -57,8 +57,8 @@ def banner():
 ╚══════════════════════════════════════════════════════════════════════════════╝
 [/bold magenta]
 
-[bold cyan]FEATURES:[/] [bold white]20+ SOURCES • AI MUTATIONS • DASHBOARD • API • DATABASE[/]
-[bold yellow]POWERED BY:[/] [bold white]SUBCANDALENA INTELLIGENCE FRAMEWORK[/]
+[bold cyan]FEATURES:[/] [bold white]20+ SOURCES • DASHBOARD • API • DATABASE[/]
+[bold yellow]POWERED BY:[/] [bold white]Candalena INTELLIGENCE[/]
 """
     console.print(Panel(banner_text, border_style="bold red", padding=(1, 2)))
 
@@ -106,6 +106,58 @@ def render_results_table(results):
     console.print(table)
 
 
+def render_results_list(results):
+    subdomains = []
+    for item in results or []:
+        if isinstance(item, dict):
+            subdomain = item.get("subdomain")
+        else:
+            subdomain = item
+        if subdomain:
+            subdomains.append(subdomain)
+
+    if not subdomains:
+        console.print("[bold yellow]⚠ Tidak ada subdomain untuk ditampilkan.[/]")
+        return
+
+    console.print("\n[bold cyan]SUBDOMAIN LIST[/]")
+    for subdomain in sorted(set(subdomains)):
+        console.print(subdomain)
+
+
+def render_directory_table(results):
+    if not results:
+        console.print("\n[bold yellow]⚠ Tidak ada directory terbuka untuk ditampilkan.[/]")
+        return
+
+    table = Table(title="Directory Scan Results", box=box.SIMPLE_HEAVY)
+    table.add_column("#", justify="right", style="dim", width=4)
+    table.add_column("Host", style="cyan", overflow="fold")
+    table.add_column("Path", style="magenta", overflow="fold")
+    table.add_column("Status", justify="center")
+    table.add_column("Size", justify="right")
+    table.add_column("Type", overflow="fold")
+    table.add_column("Title / Redirect", overflow="fold")
+
+    for idx, item in enumerate(results, 1):
+        status = color_status(item.get("status_code"))
+        content_type = item.get("content_type") or "N/A"
+        title = item.get("title") or item.get("location") or "N/A"
+        if len(title) > 70:
+            title = f"{title[:67]}..."
+        table.add_row(
+            str(idx),
+            item.get("host", "N/A"),
+            item.get("path", "N/A"),
+            status,
+            str(item.get("content_length", 0)),
+            content_type,
+            title,
+        )
+
+    console.print(table)
+
+
 async def main():
     parser = argparse.ArgumentParser(
         prog='python candalena.py',
@@ -132,12 +184,21 @@ async def main():
   python candalena.py example.com --dashboard
       Jalankan scan lalu buka dashboard lokal jika tersedia.
 
+  python candalena.py example.com -d
+      Jalankan scan subdomain lalu scan directory/path umum pada host web yang hidup.
+
+  python candalena.py example.com -o hasil.txt
+      Jalankan scan lalu simpan subdomain ke file hasil.txt.
+
   python candalena.py example.com --export all
       Scan lalu simpan laporan ke HTML/JSON/CSV/TXT.
 
 [ Output ]
-  Hasil scan langsung tampil di terminal dalam bentuk tabel.
-  Untuk file report, gunakan --export <html|json|csv|txt|all> (disimpan di folder reports/).
+  Default tanpa --dashboard, --export, atau -o akan tampil di terminal.
+  Jika memakai -d/--directory-scan, terminal menampilkan tabel subdomain dan tabel directory secara terpisah.
+  Gunakan --format list untuk output list sederhana atau --format table untuk tabel detail.
+  Gunakan -o/--output <file.txt|file.json|file.csv|file.html> untuk output ke file tertentu.
+  Gunakan --export <html|json|csv|txt|all> untuk report otomatis di folder reports/.
 
 [ Catatan ]
   Edit config/config.yaml untuk timeout, retry, resolver, wordlist, rate limit, passive sources, dan output_dir.
@@ -145,8 +206,16 @@ async def main():
     )
 
     parser.add_argument('domain', help='Target domain, contoh: example.com')
-    parser.add_argument('--dashboard', '-d', action='store_true',
+    parser.add_argument('--dashboard', action='store_true',
                         help='Buka dashboard lokal setelah scan selesai')
+    parser.add_argument('--directory-scan', '-d', action='store_true',
+                        help='Scan directory/path umum pada semua subdomain web yang hidup')
+    parser.add_argument('--directory-wordlist',
+                        help='Path wordlist directory custom (default: data/wordlists/directories.txt)')
+    parser.add_argument('--directory-limit', type=int,
+                        help='Batasi jumlah path directory yang discan dari wordlist')
+    parser.add_argument('--include-404', action='store_true',
+                        help='Tampilkan hasil directory dengan status 404 juga')
     parser.add_argument('--threads', '-t', type=int, default=50,
                         help='Jumlah worker/concurrency scan (default: 50)')
     parser.add_argument('--quick', '-q', action='store_true',
@@ -155,6 +224,16 @@ async def main():
         '--export',
         choices=['html', 'json', 'csv', 'txt', 'all'],
         help='Simpan laporan ke file (default: tidak menyimpan file)'
+    )
+    parser.add_argument(
+        '--output', '-o',
+        help='Simpan hasil ke file tertentu. Format dideteksi dari ekstensi: .txt, .json, .csv, atau .html'
+    )
+    parser.add_argument(
+        '--format',
+        choices=['table', 'list'],
+        default='table',
+        help='Format output terminal saat tidak memakai --dashboard, --export, atau -o (default: table)'
     )
 
     args = parser.parse_args()
@@ -174,9 +253,13 @@ async def main():
         config['subhunterx']['threads'] = 20
         config['wordlists']['brute_size'] = 100
         config['subhunterx']['screenshot'] = False
+        config.setdefault('directory_scan', {})['threads'] = 10
+        config.setdefault('directory_scan', {})['limit'] = 20
         console.print("[bold yellow]⚡ QUICK MODE ENABLED[/]")
 
     config['subhunterx']['threads'] = args.threads
+    if args.include_404:
+        config.setdefault('directory_scan', {})['include_404'] = True
 
     # Initialize database
     try:
@@ -195,37 +278,72 @@ async def main():
         # Calculate high risk - handle None values
         high_risk = len([r for r in results if isinstance(r, dict) and ((r.get('risk_score') or 0) >= 70 or r.get('risk_level') == 'high')])
 
-        # Generate reports
-        console.print("\n[bold blue]📊 GENERATING REPORTS...[/]")
+        console.print("\n[bold green]💀 SCAN COMPLETE — MISSION SUCCESS 💀[/]")
+        console.print(f"[bold white]📊 TOTAL LIVE SUBDOMAINS:[/] [bold cyan]{len(results)}[/]")
+        console.print(f"[bold white]🔥 HIGH RISK ASSETS:[/] [bold red]{high_risk}[/]")
+        console.print(f"[bold white]💾 DATABASE:[/] [bold yellow]subhunterx_pro.db[/]")
+
+        directory_results = []
+        if args.directory_scan:
+            console.print("\n[bold blue]📂 SCANNING DIRECTORIES...[/]")
+            scanner = DirectoryScanner(config)
+            directory_limit = args.directory_limit or config.get('directory_scan', {}).get('limit')
+            directory_wordlist = args.directory_wordlist or config.get('directory_scan', {}).get('wordlist')
+            directory_results = scanner.scan_results(
+                results,
+                wordlist_path=directory_wordlist,
+                limit=directory_limit,
+            )
+            console.print(f"[bold white]📂 DIRECTORY FINDINGS:[/] [bold cyan]{len(directory_results)}[/]")
+
         visualizer = Visualizer(
             results,
             args.domain,
             diff=getattr(engine, 'scan_diff', None),
             output_dir=config.get('subhunterx', {}).get('output_dir', 'reports')
         )
-        html_path = visualizer.create_dashboard()
-        json_path = visualizer.export_json()
-        csv_path = visualizer.export_csv()
-        txt_path = visualizer.export_txt()
-
-        console.print("\n[bold green]💀 SCAN COMPLETE — MISSION SUCCESS 💀[/]")
-        console.print(f"[bold white]📊 TOTAL LIVE SUBDOMAINS:[/] [bold cyan]{len(results)}[/]")
-        console.print(f"[bold white]🔥 HIGH RISK ASSETS:[/] [bold red]{high_risk}[/]")
-        console.print(f"[bold white]💾 DATABASE:[/] [bold yellow]subhunterx_pro.db[/]")
-        
-        console.print("\n[bold cyan]📁 EXPORTED REPORTS:[/]")
-        if html_path:
-            console.print(f"   [bold green]✓[/] HTML: {html_path}")
-        if json_path:
-            console.print(f"   [bold green]✓[/] JSON: {json_path}")
-        if csv_path:
-            console.print(f"   [bold green]✓[/] CSV: {csv_path}")
-        if txt_path:
-            console.print(f"   [bold green]✓[/] TXT: {txt_path}")
+        exported_paths = []
 
         if args.dashboard:
-            console.print("\n[bold blue] LAUNCHING INTELLIGENCE DASHBOARD...[/]")
-            asyncio.create_task(open_dashboard_task())
+            console.print("\n[bold blue]📊 GENERATING DASHBOARD...[/]")
+            html_path = visualizer.create_dashboard()
+            if html_path:
+                exported_paths.append(("HTML", html_path))
+                open_dashboard(html_path)
+
+        if args.output:
+            console.print("\n[bold blue]💾 WRITING OUTPUT FILE...[/]")
+            output_path = visualizer.export_to_path(args.output)
+            if output_path:
+                exported_paths.append(("OUTPUT", output_path))
+
+        if args.export:
+            console.print("\n[bold blue]📊 GENERATING REPORTS...[/]")
+            export_actions = {
+                'html': visualizer.create_dashboard,
+                'json': visualizer.export_json,
+                'csv': visualizer.export_csv,
+                'txt': visualizer.export_txt,
+            }
+            selected_exports = export_actions.keys() if args.export == 'all' else [args.export]
+            for export_type in selected_exports:
+                path = export_actions[export_type]()
+                if path:
+                    exported_paths.append((export_type.upper(), path))
+
+        if exported_paths:
+            console.print("\n[bold cyan]📁 OUTPUT FILES:[/]")
+            for label, path in exported_paths:
+                console.print(f"   [bold green]✓[/] {label}: {path}")
+        elif args.format == 'list':
+            render_results_list(results)
+        else:
+            render_results_table(results)
+            if args.directory_scan:
+                render_directory_table(directory_results)
+
+        if args.dashboard:
+            console.print("\n[bold cyan]DASHBOARD MODE:[/] hasil scan dibuka sebagai HTML dashboard lokal.")
 
     except KeyboardInterrupt:
         console.print("\n[bold yellow]⏹ SCAN ABORTED BY OPERATOR[/]")
@@ -234,18 +352,9 @@ async def main():
         console.print("[bold yellow] TRY --quick OR CHECK requirements.txt[/]")
 
 
-async def open_dashboard_task():
-    await asyncio.sleep(2)
-    try:
-        import webbrowser
-        webbrowser.open('http://127.0.0.1:8000')
-        console.print("\n[bold cyan] DASHBOARD:[/] http://127.0.0.1:8000")
-    except Exception:
-        console.print("\n[bold cyan] MANUAL MODE:[/] python api_server.py")
-
-
 if __name__ == "__main__":
     try:
+        configure_windows_event_loop()
         asyncio.run(main())
     except KeyboardInterrupt:
         console.print("\n[bold red]👋 TERMINATED — SUBCANDALENA OUT[/]")

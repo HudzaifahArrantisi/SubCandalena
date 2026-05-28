@@ -1,7 +1,6 @@
 import requests
 import re
-import json
-from urllib.parse import urlparse, parse_qs
+import html as html_lib
 from typing import Dict, Optional
 import hashlib
 from PIL import Image
@@ -11,71 +10,102 @@ class SubdomainAnalyzer:
     TECH_SIGNATURES = {
         'wordpress': ['wp-content', 'wp-includes', '/wordpress/'],
         'jenkins': ['jenkins', '/login?from', 'X-Jenkins'],
-        'grafana': ['grafana', '/login', 'Grafana'],
+        'grafana': ['grafana', 'grafana_session'],
+        'plesk': ['plesk', 'login_up.php', 'Plesk Obsidian'],
         'nginx': ['Server: nginx', 'nginx/'],
         'apache': ['Server: Apache', 'apache/']
     }
 
     def __init__(self, config: dict):
         self.config = config
+        self.scan_config = config.get('subhunterx', config)
 
     def analyze(self, subdomain: str) -> Optional[Dict]:
         """Full subdomain analysis"""
-        try:
-            url = f"https://{subdomain}"
-            resp = requests.get(url, timeout=10, 
-                              headers={'User-Agent': 'Mozilla/5.0'})
-            
-            tech_stack = self.detect_tech(resp)
-            title = self.extract_title(resp.text)
-            params = self.discover_params(url)
-            risk_score = self.calculate_risk(subdomain, resp.status_code, params)
-            
-            screenshot_hash = self.capture_screenshot(url) if self.config['screenshot'] else None
-            
-            return {
-                'subdomain': subdomain,
-                'url': url,
-                'status_code': resp.status_code,
-                'title': title,
-                'tech_stack': tech_stack,
-                'parameters': params,
-                'response_size': len(resp.content),
-                'risk_score': risk_score,
-                'screenshot_hash': screenshot_hash
-            }
-        except:
-            return None
+        last_error = None
+        timeout = self.scan_config.get('timeout', 10)
+
+        for scheme in ('https', 'http'):
+            url = f"{scheme}://{subdomain}"
+            try:
+                resp = requests.get(
+                    url,
+                    timeout=timeout,
+                    headers={'User-Agent': 'Mozilla/5.0'},
+                    allow_redirects=True,
+                )
+
+                tech_stack = self.detect_tech(resp)
+                title = self.extract_title(resp.text)
+                params = self.discover_params(url)
+                risk_score = self.calculate_risk(subdomain, resp.status_code, params)
+                risk_level = self.risk_level(risk_score)
+
+                screenshot_hash = (
+                    self.capture_screenshot(resp.url)
+                    if self.scan_config.get('screenshot', False)
+                    else None
+                )
+
+                return {
+                    'subdomain': subdomain,
+                    'url': resp.url,
+                    'status_code': resp.status_code,
+                    'title': title,
+                    'tech_stack': tech_stack,
+                    'parameters': params,
+                    'server': resp.headers.get('Server'),
+                    'content_type': resp.headers.get('Content-Type'),
+                    'response_size': len(resp.content),
+                    'risk_score': risk_score,
+                    'risk_level': risk_level,
+                    'screenshot_hash': screenshot_hash
+                }
+            except requests.RequestException as exc:
+                last_error = exc
+
+        return {
+            'subdomain': subdomain,
+            'url': None,
+            'status_code': None,
+            'title': None,
+            'tech_stack': 'Unknown',
+            'parameters': [],
+            'response_size': None,
+            'risk_score': 0,
+            'risk_level': 'low',
+            'risk_reasons': [f'HTTP probe failed: {last_error}'] if last_error else []
+        }
 
     def detect_tech(self, resp) -> str:
         """Detect technology stack"""
         techs = []
         text_lower = resp.text.lower()
-        headers_lower = {k.lower(): v.lower() for k, v in resp.headers.items()}
-        
-        for tech, signatures in self.TECH_SIGNATURES.items():
-            if any(sig in text_lower for sig in signatures) or \
-               any(sig in headers_lower.get('server', '') for sig in signatures):
-                techs.append(tech)
-        
-        return ', '.join(techs) or 'Unknown'
+        headers_text = " ".join(f"{key}: {value}" for key, value in resp.headers.items()).lower()
 
-    def extract_title(self, html: str) -> str:
-        match = re.search(r'<title[^>]*>([^<]+)', html, re.IGNORECASE | re.DOTALL)
-        return match.group(1).strip()[:100] if match else "No Title"
+        for tech, signatures in self.TECH_SIGNATURES.items():
+            if any(sig.lower() in text_lower or sig.lower() in headers_text for sig in signatures):
+                techs.append(tech)
+
+        return ', '.join(sorted(set(techs))) or 'Unknown'
+
+    def extract_title(self, html_text: str) -> str:
+        match = re.search(r'<title[^>]*>([^<]+)', html_text, re.IGNORECASE | re.DOTALL)
+        return html_lib.unescape(match.group(1).strip())[:100] if match else "No Title"
 
     def discover_params(self, url: str) -> list:
         """Discover interesting parameters"""
+        timeout = self.scan_config.get('timeout', 8)
         params = ['id', 'user', 'page', 'debug', 'admin', 'token', 'file', 'cmd']
         discovered = []
-        
+
         for param in params:
             test_url = f"{url}?{param}=test"
             try:
-                r = requests.get(test_url, timeout=5)
+                r = requests.get(test_url, timeout=timeout)
                 if r.status_code < 400:
                     discovered.append(param)
-            except:
+            except requests.RequestException:
                 pass
         return discovered
 
@@ -83,23 +113,31 @@ class SubdomainAnalyzer:
         """ML-inspired risk scoring"""
         try:
             score = 0
-            
+
             # Status-based scoring
             if status == 200: score += 30
             elif status in [401, 403]: score += 50
-            
+
             # Path-based scoring
             risky_paths = ['admin', 'login', 'api', 'db', 'backup', 'config']
             if any(path in subdomain.lower() for path in risky_paths):
                 score += 40
-            
+
             # Parameter scoring
             if len(params) > 2: score += 20
             if 'debug' in params or 'cmd' in params: score += 30
-            
+
             return min(max(int(score), 0), 100)
         except Exception:
             return 0
+
+    @staticmethod
+    def risk_level(score: int) -> str:
+        if score >= 70:
+            return 'high'
+        if score >= 35:
+            return 'medium'
+        return 'low'
 
     def capture_screenshot(self, url: str) -> str:
         """Capture screenshot (requires selenium)"""

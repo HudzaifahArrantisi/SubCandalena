@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from subhunterx.core.engine import SubHunterXEngine
 from subhunterx.database.manager import DBManager
+from subhunterx.utils.asyncio_compat import configure_windows_event_loop
 from subhunterx.utils.helpers import is_valid_domain, load_config
 from subhunterx.utils.visualizer import Visualizer
 
@@ -94,5 +95,6 @@ async def _run_scan(scan_id: str, domain: str):
 
 
 if __name__ == "__main__":
+    configure_windows_event_loop()
     config = load_config()
     uvicorn.run(app, host=config["api"]["host"], port=int(config["api"]["port"]))
