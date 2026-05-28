@@ -1,17 +1,9 @@
 import asyncio
-import aiohttp
 import re
-from subhunterx.database.manager import DBManager
-from subhunterx.utils.wordlist import WordlistGenerator
 from concurrent.futures import ThreadPoolExecutor
 from rich.console import Console
 from rich.progress import Progress, TextColumn, BarColumn, TimeElapsedColumn
-from rich.table import Table
 from rich import print as rprint
-from datetime import datetime
-import time
-from typing import List, Dict
-from ..utils.helpers import color_status
 from ..database.manager import DBManager
 from ..utils.wordlist import WordlistGenerator
 from .passive import PassiveRecon
@@ -28,10 +20,13 @@ class SubHunterXEngine:
         self.db = DBManager()
         self.results = []
         self.live_count = 0
+        self.scan_diff = {'new': [], 'removed': [], 'changed': []}
+        self.scan_id = None
         
     async def full_scan(self):
         """Execute complete reconnaissance workflow"""
         rprint(f"\n[bold cyan]🚀 Starting FULL reconnaissance on {self.domain}[/]")
+        previous_snapshot = self.db.snapshot(self.domain)
         
         # Phase 1: Passive Recon
         await self.phase_passive()
@@ -44,9 +39,13 @@ class SubHunterXEngine:
         
         # Phase 4: Get all results from database
         self.results = self.db.get_all_subdomains(self.domain)
+        self.scan_diff = self.db.diff_snapshots(previous_snapshot, self.db.snapshot(self.domain))
+        high_risk = len([r for r in self.results if r.get('risk_level') == 'high' or (r.get('risk_score') or 0) >= 70])
+        self.scan_id = self.db.create_scan_session(self.domain, len(self.results), high_risk)
         
-        # Phase 5: Visualization
-        self.visualize_results()
+        # Phase 5: Visualization (optional)
+        if self.config.get("subhunterx", {}).get("auto_reports", False):
+            self.visualize_results()
         
         rprint(f"\n[bold green]✅ Scan completed! Found {len(self.results)} live subdomains[/]")
         return self.results
@@ -55,7 +54,7 @@ class SubHunterXEngine:
         """Phase 1: Passive enumeration from 20+ sources"""
         rprint("\n[bold blue]📡 PHASE 1: Passive Reconnaissance[/]")
         
-        passive = PassiveRecon(self.domain)
+        passive = PassiveRecon(self.domain, self.config)
         passives = await passive.run_all_sources()
         
         with Progress(
@@ -66,7 +65,7 @@ class SubHunterXEngine:
         ) as progress:
             task = progress.add_task("Saving passives...", total=len(passives))
             for sub in passives:
-                self.db.save_subdomain(sub, source='passive')
+                self.db.save_subdomain({'domain': self.domain, 'subdomain': sub, 'source': 'passive'})
                 progress.advance(task)
         
         rprint(f"[green]✅ Found {len(passives)} passive subdomains[/]")
@@ -77,9 +76,13 @@ class SubHunterXEngine:
         
         wl_gen = WordlistGenerator(self.config)
         wordlist = wl_gen.generate_enhanced_wordlist(self.config['wordlists']['brute_size'])
+        wordlist.extend(self.generate_permutation_words())
+        wordlist = sorted(set(word.strip().lower() for word in wordlist if word and word.strip()))
         
         brute = BruteForce(self.domain, wordlist, self.config)
         lives = await brute.run_bruteforce()
+        for subdomain in lives:
+            self.db.save_subdomain({'domain': self.domain, 'subdomain': subdomain, 'source': 'bruteforce'})
         
         self.live_count += len(lives)
         rprint(f"[green]✅ Found {len(lives)} live subdomains[/]")
@@ -116,5 +119,16 @@ class SubHunterXEngine:
 
     def visualize_results(self):
         """Create beautiful visualizations"""
-        viz = Visualizer(self.results, self.domain)
+        output_dir = self.config.get('subhunterx', {}).get('output_dir', 'reports')
+        viz = Visualizer(self.results, self.domain, diff=self.scan_diff, output_dir=output_dir)
         viz.create_dashboard()
+
+    def generate_permutation_words(self):
+        """Generate simple mutation candidates from common environment patterns."""
+        base_words = ['api', 'admin', 'app', 'web', 'portal']
+        modifiers = ['dev', 'staging', 'test', 'prod', 'internal', 'v2']
+        words = []
+        for base in base_words:
+            for modifier in modifiers:
+                words.extend([f'{modifier}-{base}', f'{base}-{modifier}', f'{base}{modifier}'])
+        return words

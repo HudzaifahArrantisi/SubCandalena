@@ -17,47 +17,47 @@
 
 ---
 
-## 📋 Table of Contents
+##  Table of Contents
 
-- [🎯 Overview](#-overview)
-- [✨ Features](#-features)
-- [🔧 Installation](#-installation)
-- [🚀 Quick Start](#-quick-start)
-- [💻 Usage](#-usage)
-- [⚙️ Configuration](#-configuration)
-- [🌐 API Documentation](#-api-documentation)
-- [📚 Tutorials](#-tutorials)
-- [🎨 Dashboard](#-dashboard)
-- [🔌 Plugin System](#-plugin-system)
-- [📊 Output Formats](#-output-formats)
-- [🛡️ Security & Best Practices](#-security--best-practices)
-- [🤝 Contributing](#-contributing)
-- [📄 License](#-license)
+- [ Overview](#-overview)
+- [ Features](#-features)
+- [ Installation](#-installation)
+- [ Quick Start](#-quick-start)
+- [ Usage](#-usage)
+- [ Configuration](#-configuration)
+- [ API Documentation](#-api-documentation)
+- [ Tutorials](#-tutorials)
+- [ Dashboard](#-dashboard)
+- [ Plugin System](#-plugin-system)
+- [ Output Formats](#-output-formats)
+- [ Security & Best Practices](#-security--best-practices)
+- [ Contributing](#-contributing)
+- [ License](#-license)
 
 ---
 
-## 🎯 Overview
+##  Overview
 
 **SubCandalena (SubHunterX Pro)** adalah tool reconnaissance subdomain tingkat enterprise yang dirancang untuk penetration tester, bug bounty hunter, dan security researcher. Tool ini mengkombinasikan 20+ sumber passive reconnaissance, brute force cerdas, AI-powered mutations, dan analisis vulnerability real-time.
 
-### 🎪 Kenapa SubCandalena?
+###  Kenapa SubCandalena?
 
-- **🔍 Comprehensive Discovery**: 20+ sumber passive + brute force intelligence
-- **⚡ Lightning Fast**: Multi-threaded dengan asyncio untuk performa maksimal
-- **🎨 Beautiful Dashboard**: Web dashboard interaktif dengan visualisasi real-time
-- **🤖 AI-Powered**: Mutasi subdomain cerdas dengan pattern learning
-- **📊 Rich Reporting**: Export ke JSON, CSV, HTML dengan screenshot
-- **🔌 Extensible**: Plugin system untuk custom analyzer
-- **🌐 REST API**: Integrasi mudah dengan tool lain
-- **💾 Database**: Persistent storage dengan SQLite untuk tracking historical
+- ** Comprehensive Discovery**: 20+ sumber passive + brute force intelligence
+- ** Lightning Fast**: Multi-threaded dengan asyncio untuk performa maksimal
+- ** Beautiful Dashboard**: Web dashboard interaktif dengan visualisasi real-time
+- ** AI-Powered**: Mutasi subdomain cerdas dengan pattern learning
+- ** Rich Reporting**: Export ke JSON, CSV, HTML dengan screenshot
+- ** Extensible**: Plugin system untuk custom analyzer
+- ** REST API**: Integrasi mudah dengan tool lain
+- ** Database**: Persistent storage dengan SQLite untuk tracking historical
 
 ---
 
-## ✨ Features
+##  Features
 
-### 🔍 Reconnaissance Capabilities
+###  Reconnaissance Capabilities
 
-#### 📡 Passive Reconnaissance (20+ Sources)
+####  Passive Reconnaissance (20+ Sources)
 - **Certificate Transparency**: crt.sh, Censys
 - **DNS Services**: DNSDumpster, HackerTarget, ThreatCrowd
 - **Search Engines**: Google, Bing, Yahoo dorking
@@ -67,7 +67,7 @@
 - **Social Media**: Twitter mentions, Pastebin leaks
 - **Custom Sources**: 10+ additional proprietary sources
 
-#### ⚡ Active Reconnaissance
+####  Active Reconnaissance
 - **Intelligent Brute Force**
   - Smart wordlist generation (1k-100k entries)
   - AI-powered permutations & mutations
@@ -151,8 +151,11 @@ cd SubCandalena
 # Install dependencies
 pip3 install -r requirements.txt
 
+# Initialize project directories
+python setup.py
+
 # Verify installation
-python3 main.py --help
+python3 candalena.py --help
 ```
 
 #### Method 2: Virtual Environment (Best Practice)
@@ -170,8 +173,11 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
+# Initialize project directories
+python setup.py
+
 # Run tool
-python main.py example.com
+python candalena.py example.com
 ```
 
 #### Method 3: Docker (Coming Soon)
@@ -205,16 +211,16 @@ pyyaml==6.0.1         # Configuration parser
 
 ```bash
 # Simple scan
-python main.py example.com
+python candalena.py example.com
 
 # Quick scan (fast mode)
-python main.py example.com --quick
+python candalena.py example.com --quick
 
 # With dashboard
-python main.py example.com --dashboard
+python candalena.py example.com --dashboard
 
 # Custom threads
-python main.py example.com --threads 100
+python candalena.py example.com --threads 100
 ```
 
 ### 📊 Example Output
@@ -245,7 +251,7 @@ python main.py example.com --threads 100
 #### Basic Syntax
 
 ```bash
-python main.py <domain> [options]
+python candalena.py <domain> [options]
 ```
 
 #### Available Options
@@ -260,19 +266,19 @@ python main.py <domain> [options]
 
 ```bash
 # Standard reconnaissance
-python main.py target.com
+python candalena.py target.com
 
 # High-speed scan with 100 threads
-python main.py target.com --threads 100
+python candalena.py target.com --threads 100
 
 # Quick scan for CI/CD integration
-python main.py target.com --quick
+python candalena.py target.com --quick
 
 # Full scan with dashboard
-python main.py target.com --dashboard
+python candalena.py target.com --dashboard
 
 # Combine multiple options
-python main.py target.com --threads 80 --dashboard
+python candalena.py target.com --threads 80 --dashboard
 ```
 
 ### 🌐 Web Dashboard
@@ -460,7 +466,7 @@ for subdomain in results.json()['data']:
 
 ```bash
 # Step 1: Run basic scan
-python main.py target.com
+python candalena.py target.com
 
 # Step 2: View results
 cat reports/SubCandalena_target_com_*.json
@@ -479,7 +485,7 @@ python -c "import json; data=json.load(open('reports/SubCandalena_target_com_*.j
 
 ```bash
 # Step 1: Configure for speed
-python main.py target.com --threads 150 --quick
+python candalena.py target.com --threads 150 --quick
 
 # Step 2: Results in under 5 minutes
 # Quick mode uses:
@@ -502,7 +508,7 @@ python main.py target.com --threads 150 --quick
 
 ```bash
 # Step 1: Run scan with dashboard flag
-python main.py target.com --dashboard
+python candalena.py target.com --dashboard
 
 # Step 2: Dashboard auto-opens at http://localhost:5000
 
@@ -595,7 +601,7 @@ wordlists:
 ```
 
 ```bash
-python main.py target.com
+python candalena.py target.com
 # Slow but stealthy, minimal footprint
 ```
 
@@ -613,7 +619,7 @@ wordlists:
 ```
 
 ```bash
-python main.py target.com --threads 200
+python candalena.py target.com --threads 200
 # Aggressive, maximum discovery
 ```
 
@@ -631,7 +637,7 @@ wordlists:
 ```
 
 ```bash
-python main.py target.com --dashboard
+python candalena.py target.com --dashboard
 # Balanced approach with visual recon
 ```
 
@@ -652,7 +658,7 @@ while true; do
     echo "[$(date)] Starting scan for $DOMAIN"
     
     # Run scan
-    python main.py $DOMAIN --quick
+    python candalena.py $DOMAIN --quick
     
     # Compare with previous results
     python scripts/compare_scans.py $DOMAIN
@@ -783,7 +789,7 @@ def register():
 
 **Usage**:
 ```python
-# In main.py or engine.py
+# In candalena.py or engine.py
 from plugins.custom_analyzer import CustomAnalyzer
 
 # Initialize plugin
@@ -1109,31 +1115,31 @@ cat reports/*.json | jq -r '.subdomains[].subdomain' | cut -d'.' -f1 | sort -u >
 ### 💡 Tip 2: Integration with Other Tools
 ```bash
 # Pipe to nmap for port scanning
-python main.py target.com | grep "^[a-z]" | nmap -iL - -oA scan_results
+python candalena.py target.com | grep "^[a-z]" | nmap -iL - -oA scan_results
 
 # Pipe to httpx for HTTP probing
-python main.py target.com | grep "^[a-z]" | httpx -o live_hosts.txt
+python candalena.py target.com | grep "^[a-z]" | httpx -o live_hosts.txt
 
 # Pipe to nuclei for vulnerability scanning
-python main.py target.com | grep "^[a-z]" | nuclei -t cves/ -o vulns.txt
+python candalena.py target.com | grep "^[a-z]" | nuclei -t cves/ -o vulns.txt
 ```
 
 ### 💡 Tip 3: Automation with Cron
 ```bash
 # Add to crontab for daily scans
-0 2 * * * cd /path/to/SubCandalena && python main.py target.com --quick 2>&1 | tee -a logs/daily_scan.log
+0 2 * * * cd /path/to/SubCandalena && python candalena.py target.com --quick 2>&1 | tee -a logs/daily_scan.log
 ```
 
 ### 💡 Tip 4: Performance Tuning
 ```bash
 # For VPS with limited resources
-python main.py target.com --threads 30
+python candalena.py target.com --threads 30
 
 # For powerful servers
-python main.py target.com --threads 200
+python candalena.py target.com --threads 200
 
 # For stealth operations
-python main.py target.com --threads 10
+python candalena.py target.com --threads 10
 ```
 
 ### 💡 Tip 5: Result Filtering

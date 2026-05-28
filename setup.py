@@ -35,7 +35,7 @@ def setup():
     
     print("✅ Structure created!")
     print("📦 Install: pip install -r requirements.txt")
-    print("🎯 Run: python main.py example.com")
+    print("🎯 Run: python candalena.py example.com")
 
 if __name__ == "__main__":
     setup()

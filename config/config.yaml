@@ -3,11 +3,37 @@ api:
   port: 8000
 database:
   path: ./subhunterx_pro.db
+passive_sources:
+  alienvault: true
+  commoncrawl: true
+  crtsh: true
+  github: false
+  hackertarget: true
+  urlscan: true
+  wayback: true
 subhunterx:
+  concurrency: 50
   max_screenshots: 20
+  output_dir: reports
+  auto_reports: false
+  ports:
+  - 80
+  - 443
+  - 8080
+  - 8443
   rate_limit: 0.1
+  resolvers: []
+  retry: 1
   screenshot: false
+  sensitive_paths:
+  - /.git/config
+  - /.env
+  - /admin
+  - /backup
+  - /phpinfo.php
   threads: 50
   timeout: 8
 wordlists:
   brute_size: 1000
+  path: data/wordlists/subdomains-top1k.txt
+  permutations_path: data/wordlists/permutations.txt

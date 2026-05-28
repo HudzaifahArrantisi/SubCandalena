@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import json
+import os
 import re
 from typing import List, Set
 from rich.console import Console
@@ -17,6 +18,23 @@ class PassiveRecon:
                 for item in data
                 for name in item.get("name_value", "").split("\n")
             }
+        },
+        "wayback": {
+            "url": "https://web.archive.org/cdx?url=*.{domain}/*&output=json&fl=original&collapse=urlkey",
+            "parser": lambda data: {
+                re.sub(r"^https?://", "", row[0]).split("/")[0].split(":")[0].lower()
+                for row in data[1:]
+                if row
+            }
+        },
+        "commoncrawl": {
+            "url": "https://index.commoncrawl.org/CC-MAIN-2024-51-index?url=*.{domain}&output=json",
+            "parser": lambda text: {
+                re.sub(r"^https?://", "", json.loads(line).get("url", "")).split("/")[0].split(":")[0].lower()
+                for line in text.splitlines()
+                if line.strip()
+            },
+            "text": True
         },
 
         "urlscan": {
@@ -61,21 +79,26 @@ class PassiveRecon:
         }
     }
 
-    def __init__(self, domain: str):
+    def __init__(self, domain: str, config: dict = None):
         self.domain = domain.lower().strip()
+        self.config = config or {}
         self.results: Set[str] = set()
 
     async def run_all_sources(self) -> List[str]:
-        timeout = aiohttp.ClientTimeout(total=20)
+        timeout = aiohttp.ClientTimeout(total=self.config.get("subhunterx", {}).get("timeout", 20))
         headers = {
             "User-Agent": "PassiveRecon/1.0 (OSINT)"
         }
 
         async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
+            enabled = self.config.get("passive_sources", {})
             tasks = [
                 self.query_source(session, name, config)
                 for name, config in self.SOURCES.items()
+                if enabled.get(name, True)
             ]
+            if enabled.get("github"):
+                tasks.append(self.query_github(session))
             await asyncio.gather(*tasks, return_exceptions=True)
 
         return sorted(self._clean_results())
@@ -100,6 +123,27 @@ class PassiveRecon:
 
         except Exception as e:
             console.print(f"[red]✗[/] {name}: {str(e)[:60]}")
+
+    async def query_github(self, session: aiohttp.ClientSession):
+        token = os.environ.get("GITHUB_TOKEN")
+        if not token:
+            console.print("[yellow]-[/] github: skipped, GITHUB_TOKEN not set")
+            return
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+        url = f"https://api.github.com/search/code?q=%22.{self.domain}%22"
+        try:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status != 200:
+                    raise Exception(f"HTTP {resp.status}")
+                data = await resp.json(content_type=None)
+                found = set()
+                for item in data.get("items", []):
+                    text = f"{item.get('name', '')} {item.get('path', '')}"
+                    found.update(re.findall(rf"([a-zA-Z0-9.-]+\.{re.escape(self.domain)})", text))
+                self.results.update(found)
+                console.print(f"[green]✓[/] github: {len(found)} subs")
+        except Exception as e:
+            console.print(f"[red]✗[/] github: {str(e)[:60]}")
 
     def _clean_results(self) -> Set[str]:
         """

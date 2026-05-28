@@ -14,20 +14,38 @@ def load_config():
     default_config = {
         'subhunterx': {
             'threads': 50,
+            'concurrency': 50,
             'timeout': 8,
+            'retry': 1,
             'rate_limit': 0.1,
             'screenshot': False,
-            'max_screenshots': 20
+            'max_screenshots': 20,
+            'output_dir': 'reports',
+            'auto_reports': False,
+            'ports': [80, 443, 8080, 8443],
+            'resolvers': [],
+            'sensitive_paths': ['/.git/config', '/.env', '/admin', '/backup', '/phpinfo.php']
         },
         'database': {
             'path': './subhunterx_pro.db'
         },
         'wordlists': {
-            'brute_size': 1000
+            'brute_size': 1000,
+            'path': 'data/wordlists/subdomains-top1k.txt',
+            'permutations_path': 'data/wordlists/permutations.txt'
         },
         'api': {
             'host': '127.0.0.1',
             'port': 8000
+        },
+        'passive_sources': {
+            'crtsh': True,
+            'wayback': True,
+            'commoncrawl': True,
+            'hackertarget': True,
+            'alienvault': True,
+            'urlscan': True,
+            'github': False
         }
     }
     
@@ -40,7 +58,10 @@ def load_config():
                     # Merge with defaults
                     for key in default_config:
                         if key in loaded_config:
-                            default_config[key].update(loaded_config[key])
+                            if isinstance(default_config[key], dict) and isinstance(loaded_config[key], dict):
+                                default_config[key].update(loaded_config[key])
+                            else:
+                                default_config[key] = loaded_config[key]
         except Exception as e:
             print(f"⚠️  Error loading config: {e}, using defaults")
     else:
