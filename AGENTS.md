@@ -138,3 +138,61 @@ Minimum validation:
 ```bash
 python candalena.py example.com --quick
 python api_server.py
+```
+
+Run unit tests:
+
+```bash
+python -m unittest tests/test_core_logic.py
+```
+
+Tests cover: domain validation, risk scoring, takeover detection, snapshot diffing.
+
+---
+
+## Key Commands
+
+```bash
+# Setup
+pip install -r requirements.txt
+python setup.py
+
+# Full scan
+python candalena.py example.com
+
+# Quick scan (100 words, 20 threads, no screenshots)
+python candalena.py example.com --quick
+
+# Scan with exports
+python candalena.py example.com --export all
+
+# Directory scan on live hosts
+python candalena.py example.com -d
+
+# API server (port 8000)
+python api_server.py
+
+# Dashboard (port 5000)
+python dashboard.py
+```
+
+---
+
+## Architecture Notes
+
+- **3-Phase Pipeline**: passive recon (`core/passive.py`) → brute force (`core/brute.py`) → deep analysis (`core/analyzer.py`)
+- **Async/Sync Mix**: passive + brute phases use `asyncio` + `aiohttp`; analysis uses `ThreadPoolExecutor` + `requests`
+- **Windows Quirk**: `subhunterx/utils/asyncio_compat.py` sets `SelectorEventLoop` policy for SSL on Windows
+- **Config Loading**: `helpers.py:load_config()` deep-merges YAML defaults; `config/config.py` is a standalone duplicate — prefer `helpers.py`
+- **Database**: SQLAlchemy ORM with SQLite (`subhunterx_pro.db`); auto-migration via `_ensure_subdomain_columns()`
+- **Plugin System**: Protocol-based in `subhunterx/plugins.py`; example at `plugins/custom_analyzer.py`
+
+---
+
+## Known Gotchas
+
+- Empty module stubs exist: `modules/paramscan.py`, `permutation.py`, `bruteforce.py` (0 lines) — planned but unimplemented
+- No linter/formatter config enforced — follow PEP 8 manually
+- No CI/CD pipelines — validation is manual
+- `subhunterx_pro.db` is a runtime artifact — do not commit
+- README/docs use Indonesian + English mix
